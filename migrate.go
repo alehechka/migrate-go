@@ -114,15 +114,119 @@ func New(sourceURL, databaseURL string) (*Migrate, error) {
 	return m, nil
 }
 
-func NewCustom(sourceInstance source.Driver, databaseName string, databaseInstance database.Driver) (*Migrate, error) {
-	m := newCommon()
+type Option interface {
+	apply(*Migrate) error
+}
 
-	m.sourceDrv = sourceInstance
-	m.sourceName = "iofs"
+type withSourceInstanceOption struct {
+	sourceName string
+	sourceDrv  source.Driver
+}
 
+// WithSourceInstance is an option type used in conjunction with NewInstance and allows full control of the source.Driver configuration.
+func WithSourceInstance(sourceName string, sourceDrv source.Driver) Option {
+	return &withSourceInstanceOption{sourceName: sourceName, sourceDrv: sourceDrv}
+}
+
+func (o withSourceInstanceOption) apply(m *Migrate) error {
+	m.sourceName = o.sourceName
+	m.sourceDrv = o.sourceDrv
+	return nil
+}
+
+type withSourceOption struct {
+	sourceURL string
+}
+
+// WithSource is an option type used in conjunction with NewInstance to establish a source for migration files.
+func WithSource(sourceURL string) Option {
+	return &withSourceOption{sourceURL: sourceURL}
+}
+
+func (o withSourceOption) apply(m *Migrate) error {
+	sourceName, err := iurl.SchemeFromURL(o.sourceURL)
+	if err != nil {
+		return err
+	}
+	m.sourceName = sourceName
+
+	sourceDrv, err := source.Open(o.sourceURL)
+	if err != nil {
+		return err
+	}
+	m.sourceDrv = sourceDrv
+
+	return nil
+}
+
+type withDatabaseInstanceOption struct {
+	databaseName string
+	databaseDrv  database.Driver
+}
+
+// WithDatabase is an option type used in conjunction with NewInstance and allows full control of the database.Driver configuration.
+func WithDatabaseInstance(databaseName string, databaseDrv database.Driver) Option {
+	return &withDatabaseInstanceOption{databaseName: databaseName, databaseDrv: databaseDrv}
+}
+
+func (o withDatabaseInstanceOption) apply(m *Migrate) error {
+	m.databaseName = o.databaseName
+	m.databaseDrv = o.databaseDrv
+	return nil
+}
+
+type withDatabaseOption struct {
+	databaseURL string
+}
+
+// WithDatabase is an option type used in conjunction with NewInstance to establish a database connection and driver.
+// The proper database library driver must be imported as root in the file that initializes the Migrate instance.
+func WithDatabase(databaseURL string) Option {
+	return &withDatabaseOption{databaseURL: databaseURL}
+}
+
+func (o withDatabaseOption) apply(m *Migrate) error {
+	databaseName, err := iurl.SchemeFromURL(o.databaseURL)
+	if err != nil {
+		return err
+	}
 	m.databaseName = databaseName
 
-	m.databaseDrv = databaseInstance
+	databaseDrv, err := database.Open(o.databaseURL)
+	if err != nil {
+		return err
+	}
+	m.databaseDrv = databaseDrv
+
+	return nil
+}
+
+// NewCustom returns a new Migrate instance from a a list of option types.
+// This allows fine-grained customization of the Migrate instance and will return an error if not all criteria are met.
+func NewCustom(options ...Option) (*Migrate, error) {
+	m := newCommon()
+
+	for _, option := range options {
+		if err := option.apply(m); err != nil {
+			return nil, err
+		}
+	}
+
+	if m.sourceName == "" {
+		return nil, errors.New("no source name")
+	}
+
+	if m.sourceDrv == nil {
+		return nil, errors.New("no source driver")
+	}
+
+	if m.databaseName == "" {
+		return nil, errors.New("no database name")
+	}
+
+	if m.databaseDrv == nil {
+		return nil, errors.New("no database driver")
+	}
 
 	return m, nil
 }
