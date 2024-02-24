@@ -212,22 +212,6 @@ func NewCustom(options ...Option) (*Migrate, error) {
 		}
 	}
 
-	if m.sourceName == "" {
-		return nil, errors.New("no source name")
-	}
-
-	if m.sourceDrv == nil {
-		return nil, errors.New("no source driver")
-	}
-
-	if m.databaseName == "" {
-		return nil, errors.New("no database name")
-	}
-
-	if m.databaseDrv == nil {
-		return nil, errors.New("no database driver")
-	}
-
 	return m, nil
 }
 
