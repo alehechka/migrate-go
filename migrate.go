@@ -114,6 +114,19 @@ func New(sourceURL, databaseURL string) (*Migrate, error) {
 	return m, nil
 }
 
+func NewCustom(sourceInstance source.Driver, databaseName string, databaseInstance database.Driver) (*Migrate, error) {
+	m := newCommon()
+
+	m.sourceDrv = sourceInstance
+	m.sourceName = "iofs"
+
+	m.databaseName = databaseName
+
+	m.databaseDrv = databaseInstance
+
+	return m, nil
+}
+
 // NewWithDatabaseInstance returns a new Migrate instance from a source URL
 // and an existing database instance. The source URL scheme is defined by each driver.
 // Use any string that can serve as an identifier during logging as databaseName.
